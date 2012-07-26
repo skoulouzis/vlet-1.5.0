@@ -1,0 +1,386 @@
+<project name="mbuild-configuration" default="" basedir=".">
+    <description>
+    ====================================================================
+        Project   : VLET
+        Component : mbuild 
+        File      : components configuration file 
+        Info      :
+        
+        Configuration file for the VLET project.
+        Contains list of components and specifies dependencies
+        between components. This file also specifies the place in the SCM 
+    	repository for (optional) dynamic builds of a 'configured' version. 
+        
+        Currently the components are grouped in sets of components where
+    	each group is an ant target. 
+        Actual distribution targets (release targets) are in distributions.xml
+    
+    ===================================================================            
+    </description>
+
+    <!-- import component targets -->
+    <import file="build.xml"/>
+    <!-- <import file="vlemed.xml"/>  -->
+    <import file="doComponent.xml" />
+	   
+    <!-- ================================================================= --> 
+    <!-- VLET target groups                                                --> 
+    <!-- ================================================================= --> 
+
+    <!-- VLET VFS api only based upon minimal cog-jglobus + axis 1.4 installation -->
+    <target name="vlet-vrs" 
+            depends="auxlibs,cog-jglobus-1.4,axis-1.4,vlet-core-vdrivers,vlet-post">
+    </target>
+
+    <!-- VLET VRS api + vbrower based upon minimal cog-jglobus + axis 1.4 installation -->
+    <target name="vlet-sdk" 
+            depends="project-enable-sdk,auxlibs,cog-jglobus-1.4,axis-1.4,vlet-core-vdrivers,vlet-vbrowser,vlet-post">
+    </target>
+
+    <!-- Default VLET components (core) cog-jglobus-1.4 and no Grid Service modules -->
+    <target name="vlet-core" 
+            depends="project-enable-sdk,auxlibs,cog-jglobus-1.4,axis-1.4,vlet-core-vdrivers,vlet-gui,vlet-latexdocs,vlet-tests,vlet-post">
+    </target>
+
+	 <!-- Test build configuration for a minimal VBrowser build without GLOBUS (and no Lobo) ! --> 
+    <target name="vbrowser-skeleton" 
+            depends="auxlibs,vlet-vrs-core,vlet-vbrowser,vlet-tests,vlet-post">
+	</target>
+	
+    <!-- Legacy Globus webservice core (not supported anymore) --> 
+    <target name="vlet-core-gt4.1" 
+            depends="auxlibs-globus-wsclient-4.1.0,vlet-core-vdrivers,vlet-gui,vlet-latexdocs,vlet-tests,vlet-post">
+    </target>
+    
+    <!--
+         Full "vlet-all" distribution, including application modules. 
+         Call vlet-core + vlet-modules 
+      -->
+    <target name="vlet-all"  
+            depends="project-enable-sdk,vlet-core,vlet-modules,vlet-tests,vlet-post">
+    </target>
+
+	<!-- legacy vlemed. Not supported 
+      <target name="vlet-vlemed-all"  
+            depends="project-enable-sdk,vlet-core-gt4.1,vlet-modules,vlemed-all,vlet-tests,vlet-post">
+      </target>
+     -->
+	
+    <!-- =================================================================== --> 
+    <!--    VLET Components and other modules                                --> 
+	<!-- =================================================================== --> 
+    
+	<!-- Auxiliary libraries --> 
+    <target name="auxlibs" depends="mbuild-init">
+
+        <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.auxlibs"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+        
+    </target>
+    
+    <!-- Full GT4.1.0 wscore (not supported anymore) -->  
+    <target name="globus-wsclient-4.1.0" depends="auxlibs">
+    
+        <antcall target="buildComponent">
+            <param name="name" value="org.globus.wsclient-4.1.0"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+  
+    </target>
+                
+	<!-- minimal cog toolkit. Still stuck to 1.4  --> 
+	<target name="cog-jglobus-1.4" depends="auxlibs">
+
+        <antcall target="buildComponent">
+            <param name="name" value="cog.jglobus-1.4"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+    </target>
+            	
+	<!-- Minimal Axis 1.4 can replace globus 4.1 webclient. 
+	     Enough for pure webservice clients -->
+    <target name="axis-1.4" depends="auxlibs">
+
+	        <antcall target="buildComponent">
+	            <param name="name" value="org.apache.axis-1.4"/>
+	            <param name="version" value=""/>
+	            <param name="scm.path" value="core"/>
+	        </antcall>
+	  
+	    </target>
+	
+    <!-- auxlibs+globsu webservice client (obsolete) --> 
+    <target name="auxlibs-globus-wsclient-4.1.0" depends="auxlibs,globus-wsclient-4.1.0"/>
+
+	<!-- =================================================================== --> 
+    <!--    VLET documentation                                               --> 
+    <!-- =================================================================== --> 
+	    
+    <!-- 
+         Conditional target: latexdocs can only be created on Linux
+      -->
+	
+	<target name="check-build-latexdocs">
+		<!-- set if not set --> 
+		<property name="project.build.doc.userguide" value="yes" />
+ 
+    	<condition property="build.latexdocs">
+    		<and>
+    			<!-- yes/true strings: -->
+	 			<istrue value="${project.build.doc.userguide}"/>
+    			<not>
+    	            <os family="windows" />
+    	        </not>
+			</and> 
+ 		</condition>
+
+    	<echo message=" project.build.doc.userguide =${project.build.doc.userguide} "/>     	
+		<echo message=" build.latexdocs             =${build.latexdocs} "/>
+
+	</target>
+	
+    <target name="vlet-latexdocs" if="build.latexdocs" depends="mbuild-init,check-build-latexdocs">
+ 	
+        <antcall target="buildComponent" >
+            <param name="name" value="doc.userguide"/>
+            <param name="version" value=""/>
+	        <param name="scm.path" value="doc"/>
+        </antcall>  
+    	
+    </target>
+                
+    <!-- =================================================================== --> 
+    <!--    VLET core VRS/VFS                                                --> 
+    <!-- =================================================================== --> 
+                
+	<!-- VRS itself, includes some internal vdrivers. Check packages with ".vdriver" prefix!  -->
+    <target name="vlet-vrs-core" depends="mbuild-init">
+
+        <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.vrs.core"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+    	
+	</target>
+	
+	<!-- All "core" vdrivers -->
+    <target name="vlet-core-vdrivers" depends="mbuild-init,vlet-vrs-core">
+    	
+	    <antcall target="buildComponent">
+    		<param name="name" value="nl.uva.vlet.vfs.jcraft.ssh"/>
+    	    <param name="version" value=""/>
+    	    <param name="scm.path" value="core"/>
+    	</antcall>
+ 
+        <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.grid.globus"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+
+        <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.vfs.gftp"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+        
+        <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.lbl.srm"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+    	
+        <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.vfs.srm"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+
+        <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.glite.lfc"/>
+               <param name="version" value=""/>
+               <param name="scm.path" value="core"/>
+        </antcall>
+                    
+        <antcall target="buildComponent">
+           <param name="name" value="nl.uva.vlet.vfs.lfc"/>
+           <param name="version" value=""/>
+           <param name="scm.path" value="core"/>
+        </antcall>
+
+    	<!-- Functionality could be implemented by new iRods vdriver -->
+    	<!-- <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.vfs.srb"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall> -->  
+    	
+		<!-- prototypes -->
+    	
+        <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.vjs.wms"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+    	
+    	<!-- causes JCE exceptions! 
+    	  <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.vfs.irods"/>
+	        <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+          </antcall>
+    	--> 
+    	
+    	<!-- moved to vrs core as internal vdriver:
+    	<antcall target="buildComponent">
+            <param name="name" value="vrs.info"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="vrs"/>
+        </antcall> 
+         --> 
+    
+    </target>
+
+    <!-- GUI components --> 
+    <target name="vlet-vbrowser" depends="vlet-vrs-core">
+        
+    	<!-- GUI/VBrowser -->
+           
+     	<antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.gui.utils"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+
+        <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.gui.vbrowser"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+	</target> 
+    	
+    <!-- GUI modules --> 
+    <target name="vlet-gui" depends="vlet-vrs-core,vlet-vbrowser">
+        
+    	<!-- Lobo Browser --> 
+        <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.gui.lobo.viewer"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+    	
+    	<!-- Pedal PDF --> 
+        <antcall target="buildComponent">
+            <param name="name" value="nl.uva.vlet.gui.pedal"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="core"/>
+        </antcall>
+                   
+    </target>
+    
+	<!-- Globus 4.1 modules. Not supported anymore --> 
+    <target name="vlet-gt4.1-services" depends="vlet-core-vdrivers">
+ 
+      <antcall target="buildComponent">
+         <param name="name" value="nl.uva.vlet.vrs.rfts"/>
+         <param name="version" value=""/>
+         <param name="scm.path" value="core"/>
+     </antcall>
+  
+        <!-- Disabled prototype for now:
+        <antcall target="buildComponent">
+            <param name="name" value="ws.pvfs"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="ws"/>
+        </antcall>
+         --> 
+    </target>
+    
+	
+	<!-- =================================================================== --> 
+    <!--       VLET modules   (addons/plugins/etc/)                          -->
+	<!-- =================================================================== --> 
+
+	<!-- current modules --> 
+    			
+    <target name="vlet-modules" depends="vlet-module-jython" /> 
+
+	<target name="check-build-jython">
+		<!-- set if not set --> 
+		<property name="project.build.module.jython" value="yes" />
+		 
+    	<condition property="build.jython">
+    		<and>
+    			<!-- yes/true strings: -->
+	 			<istrue value="${project.build.module.jython}"/>
+			</and> 
+ 		</condition>
+
+    	<echo message=" project.build.module.jython =${project.build.module.jython} "/>     	
+		<echo message=" build.jython                =${build.jython} "/>
+
+	</target>
+			
+	<target name="vlet-module-jython" if="build.jython" depends="vlet-core-vdrivers,check-build-jython">
+           
+        <antcall target="buildComponent">
+            <param name="name" value="module.jython"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="modules"/>
+        </antcall>
+            	
+    </target>
+
+    <!-- =================================================================== --> 
+    <!--       AID plugins (prototype)                                       -->
+    <!-- =================================================================== --> 
+    
+    <target name="vlet-aid" depends="vlet-core-vdrivers">
+         
+        <antcall target="buildComponent">
+            <param name="name" value="app.aid.dbdemo"/>
+            <param name="version" value=""/>
+            <param name="scm.path" value="app"/>
+        </antcall>
+            
+      <!-- <antcall target="buildComponent">
+           <param name="name" value="app.vbplugin.aid.RDFViewer"/>
+           <param name="version" value=""/>
+           <param name="scm.path" value="app"/>
+       </antcall>  -->
+                   
+    </target>
+
+    <!-- 
+           junit tests 
+      -->
+        
+    <target name="vlet-tests" depends="vlet-vrs-core">
+           <antcall target="buildComponent">
+               <param name="name" value="nl.uva.vlet.vrs.tests"/>
+               <param name="version" value=""/>
+               <param name="scm.path" value="core"/>
+           </antcall>
+    </target>
+                   
+    <!-- post configuration and clean up --> 
+    <target name="vlet-post" depends="vlet-vrs-core">
+
+       <!-- update permissions -->
+       <chmod dir="${project.dist}" perm="ugo+x" includes="**/*.sh,**/bin/*" />
+    	
+    </target> 
+        
+    <!--
+      =========================================================================
+         Auxiliary
+      =========================================================================
+      -->
+
+</project>
